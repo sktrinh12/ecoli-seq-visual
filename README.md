@@ -1,7 +1,13 @@
-# Escherichia Coli Sequence Visualisation
+# Escherichia Coli PGGB Visualisation
 
+#### Sequence Tube Map
 ![Sequence Tube Map](./graph.svg)
+---
+#### Bandage
 ![Bandage](./bandage.png)
+---
+#### PGGB pangenome
+![pangenom](./output_ecoli/ecoli_pangenome.fa.gz.f02bc9a.11fba48.89da27b.smooth.final.og.viz_multiqc.png)
 
 ---
 
