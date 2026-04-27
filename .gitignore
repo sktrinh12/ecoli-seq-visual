@@ -11,3 +11,4 @@
 *.bed
 *.fa
 *.fasta
+*ipynb_checkpoints

@@ -260,7 +260,7 @@ Visualize the results with `ggplot2` in R (the intervals in the BED file can be 
 
 A pangenome graph represents the alignment of many genome sequences. By embedding gene annotations into the graph as paths, "align" them with all other paths.
 
-Start with gene annotations against the `GRCh38` reference. Our annotations are against the full `grch38#chr6`, in `./chr6.C4.bed`. Take a look at the first column in the annotation file
+Start with gene annotations against the `GRCh38` reference. The annotations are against the full `grch38#chr6`, in `./chr6.C4.bed`. Take a look at the first column in the annotation file
 
 ```bash
 wget https://raw.githubusercontent.com/pangenome/odgi/master/test/chr6.C4.bed
