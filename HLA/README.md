@@ -233,3 +233,90 @@ First, download the `.fna` file from [C4A complement](https://www.ncbi.nlm.nih.g
 - Can filter based on bp length and other params, copy paste output by selecting manually. Also can use the version of BLAST by clicking 'Output' -> 'Web BLAST selected nodes' as shown below:
 
 ![results](./blast.png)
+
+---
+
+
+## Untangle C4 Locus
+
+To obtain another overview of a collapsed locus, apply `odgi untangle` to segment paths into linear segments by breaking these segments where the paths loop back on themselves. In this way, it is possible to obtain information on the copy number status of the sequences in the locus.
+
+To untangle the C4 graph, execute:
+
+```bash
+(echo query.name query.start query.end ref.name ref.start ref.end score inv self.cov n.th |
+  tr ' ' '\t'; odgi untangle -i chr6.pan.C4.sorted.og -r $(odgi paths -i chr6.pan.C4.sorted.og -L | grep grch38) -t 8 -m 256 -P |
+  bedtools sort -i - ) | awk '$8 == "-" { x=$6; $6=$5; $5=x; } { print }' |
+  tr ' ' '\t'   > chr6.pan.C4.sorted.untangle.bed
+```
+
+Take a look at the `chr6.pan.C4.sorted.untangle.bed` file. For each segment in the query (`query.name, query.start, and query.end` columns), the best match on the reference is reported (`ref.name, ref.start, and ref.end`), with information about the quality of the match (score), the strand (inv), the copy number status (self.cov), and its rank over all possible matches (n.th).
+
+Visualize the results with `ggplot2` in R (the intervals in the BED file can be displayed with `geom_segment`). Compare such a visualization with the visualization obtained with the odgi viz coloring by depth. Check the `C4-locus-analysis.ipynb`
+
+---
+
+## Injection
+
+A pangenome graph represents the alignment of many genome sequences. By embedding gene annotations into the graph as paths, "align" them with all other paths.
+
+Start with gene annotations against the `GRCh38` reference. Our annotations are against the full `grch38#chr6`, in `./chr6.C4.bed`. Take a look at the first column in the annotation file
+
+```bash
+wget https://raw.githubusercontent.com/pangenome/odgi/master/test/chr6.C4.bed
+head ./chr6.C4.bed
+```
+
+However, the C4 locus graph `chr6.c4.gfa` is over the reference range, that is `grch38#chr6:31972046-32055647`. With odgi paths can take a look at the names of the paths in the graph
+
+```bash
+wget https://raw.githubusercontent.com/pangenome/odgi/master/test/chr6.C4.gfa
+odgi paths -i chr6.C4.gfa -L | grep grc
+# grch38#chr6:31972046-32055647
+```
+So, must adjust the annotations to match the subgraph to ensure that path names and coordinates exactly correspond between the BED and GFA. Do so using `odgi procbed`, which cuts BED records to fit within a given subgraph:
+
+```bash
+odgi procbed -i chr6.C4.gfa -b chr6.C4.bed > chr6.C4.adj.bed
+```
+
+The coordinate space now matches that of the C4 subgraph. Now, can inject these annotations into the graph:
+
+```bash
+odgi inject -i chr6.C4.gfa -b chr6.C4.adj.bed -o chr6.C4.genes.og
+```
+
+Use `odgi viz` to visualize the new subgraph with the injected paths.
+
+Now use the gene names and the `gggenes` output format from `odgi untangle` to obtain a gene arrow map. Specify the injected paths as target paths:
+
+```bash
+odgi paths -i chr6.C4.genes.og -L | tail -4 > chr6.C4.gene.names.txt
+
+odgi untangle -R chr6.C4.gene.names.txt -i chr6.C4.genes.og -j 0.5 -t 8 -g > chr6.C4.gene.gggenes.tsv
+```
+
+Use `-j 0.5` to filter out low-quality matches. Then load this into R for plotting with `gggenes`:
+
+```R
+require(ggplot2)
+require(gggenes)
+x <- read.delim('chr6.C4.gene.gggenes.tsv')
+ggplot(x, aes(xmin=start, xmax=end, y=molecule, fill=gene, forward=strand)) + geom_gene_arrow()
+ggsave('c4.gggenes.subset.png', height=1.5, width=15)
+```
+
+The plot will look a bit odd because some of the paths are in reverse complement orientation relative to the annotations. Can clean this up by using `odgi flip`, which flips paths around if they tend to be in the reverse complement orientation relative to the graph:
+
+```bash
+odgi flip -i chr6.C4.genes.og -o - -t 8 | odgi view -i - -g > chr6.C4.genes.flip.gfa
+
+odgi untangle -R chr6.C4.gene.names.txt -i chr6.C4.genes.flip.gfa -j 0.5 -t 8 -g > chr6.C4.gene.gggenes.tsv
+```
+
+- The Y-Axis (Left Side): Each row represents a different individual’s DNA (labeled as "molecule"). These are different samples from the human population.
+- The X-Axis (Bottom): This represents the position along that specific piece of DNA.
+- The Arrows: Each arrow is a gene.
+    * Direction: The way the arrow points is the "strand" (the direction the gene is read).
+    * Colors: Different colors represent different genes (`C4A` vs `C4B`).
+- The Big Takeaway: Some rows have two arrows, while others have three or four. This shows Copy Number Variation. It proves that some people naturally have more copies of these immune genes than others.
